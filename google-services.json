@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "577951014381",
+    "project_id": "blacksfit-d7ea8",
+    "storage_bucket": "blacksfit-d7ea8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577951014381:android:b50dc96ac616a0f2959be4",
+        "android_client_info": {
+          "package_name": "com.anonymous.blacksfit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTHA0tqraXlhJtPeHXgfjTFS1jtG0LFqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

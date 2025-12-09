@@ -23,7 +23,7 @@ After completing the web version, BLACKSFIT was **rebuilt as a full mobile app**
 
 <table>
   <tr>
-    <td><img src="../blacksfit/image/image1.png" alt="BLACKSFIT UI Screenshot" width="100%"></td>
+    <td><img src="image/image1.png" alt="BLACKSFIT UI Screenshot" width="100%"></td>
     <td><img src="../blacksfit/image/image2.png" alt="BLACKSFIT UI Screenshot" width="100%"></td>
   </tr>
   <tr>

@@ -16,7 +16,7 @@ After completing the web version, BLACKSFIT was **rebuilt as a full mobile app**
 -  **Upcoming: Mobile payments via Paystack + Flutterwave**  
 
 ---
-## 📸 UI Preview
+## UI Preview
 
 > A clean and elegant interface that showcases BLACKSFIT’s latest collection:
 
@@ -50,7 +50,7 @@ After completing the web version, BLACKSFIT was **rebuilt as a full mobile app**
 
 ---
 
-# 🛒 Payment Integration (Planned)
+# Payment Integration (Planned)
 
 Will support:
 - **Paystack**
@@ -75,9 +75,9 @@ Integrated using **Formspree**.
 
 ---
 
-# 🧪 Installation & Setup
+# Installation & Setup
 
-## 🔧 mobile App Setup
+## mobile App Setup
 ```bash
 git clone https://github.com/shittu-qudus/Blacksfit-APP.git
 cd blacksfit

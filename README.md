@@ -19,7 +19,7 @@ After completing the web version, BLACKSFIT was **rebuilt as a full mobile app**
 ## 📸 UI Preview
 
 > A clean and elegant interface that showcases BLACKSFIT’s latest collection:
-## 📸 UI Preview
+
 
 <table>
   <tr>

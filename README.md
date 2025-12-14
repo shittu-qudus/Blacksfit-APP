@@ -5,7 +5,7 @@
 
 After completing the web version, BLACKSFIT was **rebuilt as a full mobile app** using **React Native + Expo**, giving users a native shopping experience on Android & iOS.
 # NOTE
- I used **Zapier**C for the automation and authentication during testing, but the free trial has expired. If you install and run the app, you can find the authentication code in the console.
+I used **SUPABASE** for automation and authentication during the testing phase, and the API key was deliberately exposed so HR and contributors could test the project.
 ## Mobile App Features
 -  **React Native + Expo build**  
 -  **Same BLACKSFIT dark aesthetic**  

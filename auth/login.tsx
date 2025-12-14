@@ -1,5 +1,5 @@
 // src/screens/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,63 +12,30 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
+import { supabase } from '../lib/supabase';
 
-const LoginScreen = ({ navigation }: { navigation: any }) => {
+const LoginScreen = ({ navigation}: { navigation: any }) => {
   const [email, setEmail] = useState('');
-  const [userEnteredCode, setUserEnteredCode] = useState('');
-  const [step, setStep] = useState('email');
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState('email'); 
   const [loading, setLoading] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [authMode, setAuthMode] = useState('magic');
 
-  const FORMSPREE_FORM_ID = 'xnnwjqgb';
-  
-  const ZAPIER_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/25464359/uf1qjb3/';
+  // Check for existing session
+  useEffect(() => {
+    checkSession();
+  }, []);
 
-  const generateVerificationCode = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
-
-  const sendToZapierWebhook = async (email: string, code: string, type = 'login_verification') => {
-    try {
-      const webhookData = {
-        email: email,
-        verification_code: code,
-        type: type,
-        timestamp: new Date().toISOString(),
-        subject: `Your Login Code: ${code}`,
-        message: `Your verification code is: ${code}. Use this code to complete your login.`,
-       
-        user_email: email,
-        code: code,
-        login_code: code
-      };
-
-      console.log('Sending to Zapier webhook:', webhookData);
-
-      const response = await fetch(ZAPIER_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookData),
-      });
-
-      if (response.ok) {
-        console.log('Zapier webhook successful');
-        return true;
-      } else {
-        console.log('Zapier webhook failed:', response.status);
-        const errorText = await response.text();
-        console.log('Zapier error response:', errorText);
-        return false;
-      }
-    } catch (error) {
-      console.error('Zapier webhook error:', error);
-      return false;
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      // REMOVED unnecessary arrow function - directly navigate
+      navigation.navigate('MainApp'); // Check if this is the correct name
     }
   };
 
-  const sendVerificationCode = async () => {
+  // Send Magic Link
+  const sendMagicLink = async () => {
     if (!email) {
       Alert.alert('Error', 'Please enter your email address');
       return;
@@ -82,95 +49,140 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
 
     setLoading(true);
     try {
-      const code = generateVerificationCode();
-      setGeneratedCode(code);
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: 'blacksfits://auth/callback',
+        },
+      });
 
-      console.log('Generated code:', code, 'for email:', email);
-
-      // Send to Zapier webhook FIRST (primary method)
-      const webhookSuccess = await sendToZapierWebhook(email, code, 'login_verification');
-
-      if (!webhookSuccess) {
-        // Fallback: Send via Formspree directly
-        console.log('Zapier failed, using Formspree fallback');
-        await fetch(`https://formspree.io/f/${FORMSPREE_FORM_ID}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            _subject: `Your Login Code: ${code}`,
-            _replyto: email,
-            email: email,
-            verification_code: code,
-            message: `Your verification code is: ${code}`,
-            type: 'login_verification',
-            timestamp: new Date().toISOString()
-          }),
-        });
-      }
+      if (error) throw error;
 
       setStep('verify');
-      Alert.alert('Code Sent!', 'Check your email for the verification code');
-      
-    } catch (error) {
-      console.error('Send Error:', error);
       Alert.alert(
-        'Failed to Send Code', 
-        'Please check your internet connection and try again.'
+        'Magic Link Sent!',
+        `Check your email (${email}) for a secure login link.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('CheckEmail', { 
+              email, 
+              type: 'magic',
+              canResend: true 
+            })
+          }
+        ]
       );
+    } catch (error) {
+      Alert.alert('Error', (error as Error).message || 'Failed to send magic link');
     } finally {
       setLoading(false);
     }
   };
 
-  const verifyCodeAndLogin = () => {
-    if (!userEnteredCode) {
-      Alert.alert('Error', 'Please enter the verification code');
+  // Email/Password Sign In
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
-    if (userEnteredCode === generatedCode) {
-      Alert.alert('Success', 'Welcome back!');
-      // Navigate to main app
-      navigation.navigate('MainDrawer');
-    } else {
-      Alert.alert('Invalid Code', 'The code you entered is incorrect. Please try again.');
-    }
-  };
-
-  const resendCode = async () => {
-    const newCode = generateVerificationCode();
-    setGeneratedCode(newCode);
-
+    setLoading(true);
     try {
-      // Try Zapier webhook first
-      const webhookSuccess = await sendToZapierWebhook(email, newCode, 'login_verification_resend');
-      
-      if (!webhookSuccess) {
-        // Fallback to Formspree
-        await fetch(`https://formspree.io/f/${FORMSPREE_FORM_ID}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            _subject: `Your New Login Code: ${newCode}`,
-            _replyto: email,
-            email: email,
-            verification_code: newCode,
-            message: `Your new verification code is: ${newCode}`,
-            type: 'login_verification_resend'
-          }),
-        });
-      }
-      
-      Alert.alert('New Code Sent!', 'Check your email for the new verification code');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Welcome back to blacksfits!');
+      // REMOVED unnecessary arrow function - directly navigate
+      navigation.navigate('MainApp'); // Check if this is the correct name
     } catch (error) {
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+      if ((error as Error).message?.includes('Invalid login credentials')) {
+        Alert.alert(
+          'Invalid Credentials',
+          'The email or password is incorrect.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Reset Password', 
+              onPress: () => handlePasswordReset() 
+            },
+            { 
+              text: 'Try Magic Link', 
+              onPress: () => {
+                setAuthMode('magic');
+                setStep('email');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', (error as Error).message || 'Failed to sign in');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Password Reset
+  const handlePasswordReset = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'blacksfits://auth/reset-password',
+      });
+
+      if (error) throw error;
+
+      Alert.alert(
+        'Reset Email Sent!',
+        `Check your email (${email}) for password reset instructions.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('CheckEmail', {
+              email,
+              type: 'reset',
+              canResend: true
+            })
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error',  (error as Error).message || 'Failed to send reset email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend Verification
+  const resendVerification = async () => {
+    setLoading(true);
+    try {
+      if (authMode === 'magic') {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: 'blacksfits://auth/callback' },
+        });
+        if (error) throw error;
+        Alert.alert('Success', 'New magic link sent!');
+      }
+    } catch (error) {
+      Alert.alert('Error', (error as Error).message || 'Failed to resend');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Simplified UI - Removed signup functionality since you have a separate SignupScreen
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -178,42 +190,78 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
+          {/* Logo/Header */}
+          <View style={styles.header}>
+            <Text style={styles.appName}>blacksfits</Text>
+            <Text style={styles.tagline}>Your Fitness Journey Starts Here</Text>
+          </View>
+
           <Text style={styles.title}>
-            {step === 'email' ? 'Welcome' : 'Check Your Email'}
+            {step === 'email' ? 'Welcome Back' : 'Check Your Email'}
           </Text>
+          
           <Text style={styles.subtitle}>
             {step === 'email' 
               ? 'Enter your email to continue' 
-              : `We sent a code to ${email}`
+              : `We sent a login link to ${email}`
             }
           </Text>
 
+          {/* Email Input */}
+          {step !== 'verify' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="your@email.com"
+                placeholderTextColor="#999"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!loading}
+              />
+            </View>
+          )}
+
+          {/* Password Input */}
+          {step === 'password' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="password"
+                editable={!loading}
+              />
+              <TouchableOpacity 
+                style={styles.forgotPassword}
+                onPress={handlePasswordReset}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Action Buttons */}
           {step === 'email' ? (
             <>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email Address</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  editable={!loading}
-                />
-              </View>
-
+              {/* Magic Link Button */}
               <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]} 
-                onPress={sendVerificationCode}
+                style={[styles.button, styles.magicButton]} 
+                onPress={sendMagicLink}
                 disabled={loading}
               >
-                {loading ? (
+                {loading && authMode === 'magic' ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Continue with Email</Text>
+                  <Text style={styles.buttonText}>Send Magic Link</Text>
                 )}
               </TouchableOpacity>
 
@@ -223,51 +271,83 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
                 <View style={styles.dividerLine} />
               </View>
 
+              {/* Sign In with Password */}
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setAuthMode('signin');
+                  setStep('password');
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.secondaryButtonText}>Sign In with Password</Text>
+              </TouchableOpacity>
+
+              {/* Create Account */}
               <TouchableOpacity 
                 onPress={() => navigation.navigate('Signup')}
-                style={styles.secondaryButton}
+                style={styles.textButton}
+                disabled={loading}
               >
-                <Text style={styles.secondaryButtonText}>Create New Account</Text>
+                <Text style={styles.textButtonText}>
+                  Create New Account
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : step === 'password' ? (
+            /* Password Step */
+            <>
+              <TouchableOpacity 
+                style={[styles.button, loading && styles.buttonDisabled]} 
+                onPress={handleSignIn}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setStep('email');
+                  setPassword('');
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.secondaryButtonText}>Back</Text>
               </TouchableOpacity>
             </>
           ) : (
+            /* Verify Step */
             <>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Verification Code</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter 6-digit code"
-                  placeholderTextColor="#999"
-                  value={userEnteredCode}
-                  onChangeText={setUserEnteredCode}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  autoFocus={true}
-                />
-                <Text style={styles.codeHint}>
-                  Enter the 6-digit code sent to your email
-                </Text>
-              </View>
+              <Text style={styles.verificationText}>
+                Tap the login link sent to your email to securely access your account.
+              </Text>
 
               <TouchableOpacity 
-                style={styles.button} 
-                onPress={verifyCodeAndLogin}
+                style={[styles.button, loading && styles.buttonDisabled]} 
+                onPress={resendVerification}
+                disabled={loading}
               >
-                <Text style={styles.buttonText}>Verify & Continue</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Resend Magic Link</Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity 
                 style={styles.secondaryButton}
-                onPress={resendCode}
+                onPress={() => {
+                  setStep('email');
+                  setEmail('');
+                }}
+                disabled={loading}
               >
-                <Text style={styles.secondaryButtonText}>Resend Code</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.textButton}
-                onPress={() => setStep('email')}
-              >
-                <Text style={styles.textButtonText}>Use a different email</Text>
+                <Text style={styles.secondaryButtonText}>Use a different email</Text>
               </TouchableOpacity>
             </>
           )}
@@ -277,11 +357,10 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
-// ... keep your existing styles exactly as they are ...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#0a0a0a',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -290,66 +369,86 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
   },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  appName: {
+    fontSize: 42,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  tagline: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+  },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
-    color: '#333',
+    color: '#ffffff',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     textAlign: 'center',
     marginBottom: 40,
-    color: '#666',
+    color: '#aaa',
   },
   inputContainer: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: '#1a1a1a',
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#333',
     fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    color: '#ffffff',
   },
-  codeHint: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
+  verificationText: {
+    fontSize: 16,
+    color: '#aaa',
     textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
+    backgroundColor: '#ffffff',
+    padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#007AFF',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
+  magicButton: {
+    backgroundColor: '#007AFF',
+  },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: '#0a0a0a',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   divider: {
     flexDirection: 'row',
@@ -359,7 +458,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: '#333',
   },
   dividerText: {
     marginHorizontal: 16,
@@ -367,25 +466,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   secondaryButton: {
-    padding: 16,
+    padding: 18,
     borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#007AFF',
+    borderWidth: 1,
+    borderColor: '#444',
     backgroundColor: 'transparent',
+    marginTop: 12,
   },
   secondaryButtonText: {
-    color: '#007AFF',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   textButton: {
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 24,
   },
   textButtonText: {
-    color: '#666',
+    color: '#888',
+    fontSize: 14,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: 12,
+  },
+  forgotPasswordText: {
+    color: '#007AFF',
     fontSize: 14,
   },
 });

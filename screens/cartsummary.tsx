@@ -97,7 +97,7 @@ const CartDisplay: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          Shopping Cart ({totalQuantity} {totalQuantity === 1 ? 'item' : 'items'})
+           ({totalQuantity} {totalQuantity === 1 ? 'item' : 'items'})
         </Text>
         <TouchableOpacity style={styles.clearButton} onPress={handleClearCart}>
           <Text style={styles.clearButtonText}>Clear Cart</Text>

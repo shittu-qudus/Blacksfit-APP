@@ -20,7 +20,6 @@ export type DrawerParamList = {
   Settings: undefined;
 };
 
-// Declare global types for useNavigation
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
